@@ -4,57 +4,29 @@ const fs = require("fs");
 
 require("dotenv").config();
 
-const {  PUBLIC_KEY , PRIVATE_KEY , MUMBAI_API_URL} = process.env;
+const {  PRIVATE_KEY , MUMBAI_API_URL} = process.env;
 
 const provider = new ethers.providers.JsonRpcProvider(MUMBAI_API_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY);
 const account = wallet.connect(provider);
 
-const MockOrackle = require('../artifacts/contracts/MockOracle.sol/MockOracle.json');
-const mockOracleContractAddress = "0xe4d10Bd0E0597710B946355D6DA68266144ca7b2";
-const mockOrackleContract = new ethers.Contract(mockOracleContractAddress, MockOrackle.abi, provider);
 
 const StrikePool = require('../artifacts/contracts/IStrikePool.sol/IStrikePool.json') ;
 const strikePoolContractAddress = "0xf393269f4Ed2DcB3484202aE39325B576fC56684" ;
 const strikePoolContract = new ethers.Contract(strikePoolContractAddress, StrikePool.abi, provider) ;
 
-// NFT and update interval settings are coming from the bot_config.json file
-// NFT collection name after the opensea.io/collection/ part for example: https://opensea.io/collection/milady
-// updateInterval is in minutes
-// volatility can be changed in bot_config.json file
+
+// Strike prices array and update interval can be changed in bot_config.json file
 
 let botConfig ;
-let nftCollectionName ;
 let updateInterval ;
-let volatility ;
-
-//const nftCollectionName = "milady"; // 
-//let updateInterval = 20; // 20 minutes
+let strikePriceArray ;
 
 
-
-async function getFloorPrice(nftCollectionName) {
-  console.log('\nGetting floor price...');
-  const url = `https://api.opensea.io/api/v1/collection/${nftCollectionName}/stats`;
-
-  try {
-    const response = await axios.get(url);
-    const data = response.data;
-    if (data) {
-      const floorPrice = data.stats.floor_price;
-      console.log(`Floor Price: ${floorPrice} ETH \n`);
-      return floorPrice;
-    } else {
-      throw new Error("Collection not found.");
-    }
-  } catch (error) {
-    console.error("Error:", error.message);
-  }
-}
 
 
 async function getEpoch() {
-    console.log('Getting Epoch...');
+    console.log('\nGetting Epoch...');
     try {
         const epoch = await strikePoolContract.getEpoch_2e() ;
         console.log(`Epoch: ${epoch}`);
@@ -72,12 +44,10 @@ async function getBotConfig() {
     return _botConfig ;
 }
 
-
-async function setFloorPriceWithEpoch (floorPrice, epoch) {
-
+async function setStrikePrices(epoch_, strikePriceArray_) {
+    console.log('\nSetting strike prices at epoch: ' + epoch_ + ' with strike prices: ' + strikePriceArray_);
     try {
-        console.log(`\nSetting floor price to ${floorPrice} for epoch ${epoch}`);
-        const tx = await strikePoolContract.connect(account).setFloorPriceAt(epoch, floorPrice);
+        const tx = await strikePoolContract.connect(account).setStrikePriceAt(epoch_, strikePriceArray_) ;
         console.log(`Transaction hash: ${tx.hash}`);
         console.log(`\nWaiting for transaction to be mined...`);
         const receipt = await tx.wait();
@@ -90,13 +60,11 @@ async function setFloorPriceWithEpoch (floorPrice, epoch) {
     catch (error) {
         console.error("Error:", error.message);
     }
-
-
 }
+
 
 async function main() {
     let loopCount = 0;
-    let _floorPrice = 0;
     let _epoch = 0;
 
 
@@ -107,19 +75,15 @@ while (true) {
     console.log('loopCount: ' + loopCount +" \n") ;
 
     botConfig = await getBotConfig() ;
-    nftCollectionName = botConfig.nftCollectionName;
-    volatility = botConfig.volatility;
+    strikePriceArray = botConfig.strikePriceArray;
     updateInterval = botConfig.updateInterval;
     updateInterval = updateInterval * 60 * 1000; // convert to milliseconds
 
-    console.log('Volatility: ' + volatility);
-
-    _floorPrice = await getFloorPrice(nftCollectionName);
-    _floorPrice = ethers.utils.parseEther(_floorPrice.toString());
+    console.log('Strike prices: ' + strikePriceArray);
 
     _epoch = await getEpoch() ;
 
-    let receipt = await setFloorPriceWithEpoch(_floorPrice, _epoch) ;
+    let receipt = await setStrikePrices(_epoch, strikePriceArray) ;
     
     console.log('\nWaiting for '+ updateInterval/60000+' minutes... \n\n');
     
