@@ -76,6 +76,12 @@ while (true) {
 
     botConfig = await getBotConfig() ;
     strikePriceArray = botConfig.strikePriceArray;
+
+    for (let i = 0; i < strikePriceArray.length; i++) {
+        strikePriceArray[i] = ethers.utils.parseUnits(strikePriceArray[i] , 18) ;
+    } ;
+
+
     updateInterval = botConfig.updateInterval;
     updateInterval = updateInterval * 60 * 1000; // convert to milliseconds
 

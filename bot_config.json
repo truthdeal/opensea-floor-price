@@ -1,6 +1,6 @@
 {
     "nftCollectionName": "milady" ,
     "updateInterval": 20 ,
-    "strikePriceArray": [ 8 , 13 ] ,
+    "strikePriceArray": [ "1.9" , "2.2" , "2.2" ] ,
     "volatility": 20000000 
 }
